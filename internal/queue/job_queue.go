@@ -25,8 +25,8 @@ func (queue *JobQueue) Pop() (*Job, bool) {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
-	if queue.Len() == 0 {
-		return &Job{}, false
+	if queue.heap.Len() == 0 {
+		return nil, false
 	}
 
 	return heap.Pop(&queue.heap).(*Job), true
@@ -36,5 +36,5 @@ func (queue *JobQueue) Len() int {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
-	return queue.Len()
+	return queue.heap.Len()
 }
