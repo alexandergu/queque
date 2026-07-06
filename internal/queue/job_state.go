@@ -14,6 +14,7 @@ var fsm = map[State]map[State]bool{
 	JobStateScheduled: {
 		JobStateRunning:   true,
 		JobStateCancelled: true,
+		JobStateFailed:    true,
 	},
 	JobStateRunning: {
 		JobStateCompleted: true,
