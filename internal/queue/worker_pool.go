@@ -2,7 +2,7 @@ package queue
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"slices"
 	"sync"
 
@@ -13,9 +13,10 @@ type WorkerPool struct {
 	mu      sync.Mutex
 	workers []*Worker
 
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	ctx     context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	stopped bool
 
 	jobs    <-chan *Job
 	process func(*Job)
@@ -37,6 +38,10 @@ func (pool *WorkerPool) Start(count int) {
 }
 
 func (pool *WorkerPool) Stop() {
+	pool.mu.Lock()
+	pool.stopped = true
+	pool.mu.Unlock()
+
 	pool.cancel()
 	pool.wg.Wait()
 }
@@ -48,6 +53,10 @@ func (pool *WorkerPool) Resize(count int) {
 
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
+
+	if pool.stopped {
+		return
+	}
 
 	currentLength := len(pool.workers)
 
@@ -68,7 +77,7 @@ func (pool *WorkerPool) Resize(count int) {
 			close(pool.workers[i].quit)
 		}
 
-		pool.workers = pool.workers[:count]
+		pool.workers = slices.Delete(pool.workers, count, currentLength)
 	}
 }
 
@@ -102,10 +111,10 @@ func (pool *WorkerPool) stopWorker(id string) error {
 		}
 
 		close(worker.quit)
-		slices.Delete(pool.workers, i, i+1)
+		pool.workers = slices.Delete(pool.workers, i, i+1)
 
 		return nil
 	}
 
-	return errors.New("Not found worker")
+	return fmt.Errorf("worker %s not found", id)
 }
