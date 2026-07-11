@@ -1,7 +1,52 @@
 package main
 
-import "log"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/alexandergu/queque/internal/api"
+	"github.com/alexandergu/queque/internal/queue"
+)
 
 func main() {
-	log.Println("starting server")
+	engine := queue.NewEngine()
+	for key, handler := range QueueHandlers {
+		engine.RegisterHandler(key, handler)
+	}
+	engine.Start()
+
+	router := api.NewRouter(engine)
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			fmt.Println("Listen server error")
+		}
+	}()
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	<-ctx.Done()
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelShutdown()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		fmt.Println("Error shutdown server")
+	}
+
+	if err := engine.Stop(); err != nil {
+		fmt.Println("Error stop engine")
+	}
+
+	fmt.Println("Stopped")
 }
