@@ -19,6 +19,8 @@ type Job struct {
 	CreatedAt  time.Time
 	StartedAt  time.Time
 	FinishedAt time.Time
+
+	seq int64
 }
 
 func NewJob(dto JobDto) *Job {

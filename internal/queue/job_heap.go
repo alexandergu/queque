@@ -4,7 +4,7 @@ type JobHeap []*Job
 
 func (h JobHeap) Less(i, j int) bool {
 	if h[i].Priority == h[j].Priority {
-		return h[i].Priority < h[j].Priority
+		return h[i].seq < h[j].seq
 	}
 
 	return h[i].Priority > h[j].Priority
@@ -23,6 +23,7 @@ func (h *JobHeap) Pop() any {
 	length := len(heap)
 	item := heap[length-1]
 
+	heap[length-1] = nil
 	*h = heap[:length-1]
 
 	return item
