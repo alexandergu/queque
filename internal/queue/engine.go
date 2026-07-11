@@ -1,7 +1,10 @@
 package queue
 
 import (
+	"context"
+	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/google/uuid"
 )
@@ -12,12 +15,16 @@ type Engine struct {
 	pool     *WorkerPool
 	handlers *HandlerRegistry
 
-	jobs chan *Job
-	wake chan struct{}
+	jobs   chan *Job
+	wake   chan struct{}
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func NewEngine() *Engine {
 	jobsChannel := make(chan *Job)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	engine := &Engine{
 		registry: newJobRegistry(),
@@ -25,6 +32,8 @@ func NewEngine() *Engine {
 		handlers: newHandlerRegistry(),
 		jobs:     jobsChannel,
 		wake:     make(chan struct{}, 1),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 	engine.pool = NewWorkerPool(jobsChannel, engine.process)
 
@@ -32,11 +41,16 @@ func NewEngine() *Engine {
 }
 
 func (e *Engine) Start() {
+	e.wg.Add(1)
 	go e.dispatch()
 	e.pool.Start(1)
 }
 
 func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
+	if e.ctx.Err() != nil {
+		return JobSnapshot{}, fmt.Errorf("engine has already stopped")
+	}
+
 	job := NewJob(data)
 
 	e.registry.Add(job)
@@ -51,6 +65,8 @@ func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
 }
 
 func (e *Engine) Stop() error {
+	e.cancel()
+	e.wg.Wait()
 	e.pool.Stop()
 
 	return nil
@@ -85,16 +101,28 @@ func (e *Engine) GetJob(id uuid.UUID) (JobSnapshot, error) {
 }
 
 func (e *Engine) dispatch() {
+	defer e.wg.Done()
+
 	for {
 		job, ok := e.queue.Pop()
 
 		if !ok {
-			<-e.wake
-
-			continue
+			select {
+			case <-e.wake:
+				continue
+			case <-e.ctx.Done():
+				return
+			}
 		}
 
-		e.jobs <- job
+		select {
+		case <-e.ctx.Done():
+			e.queue.Push(job)
+
+			return
+		case e.jobs <- job:
+			continue
+		}
 	}
 }
 
