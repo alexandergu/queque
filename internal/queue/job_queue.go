@@ -11,7 +11,7 @@ type JobQueue struct {
 	seq  int64
 }
 
-func NewJobQueue() *JobQueue {
+func newJobQueue() *JobQueue {
 	return &JobQueue{}
 }
 

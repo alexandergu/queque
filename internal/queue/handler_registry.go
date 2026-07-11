@@ -6,7 +6,7 @@ type HandlerRegistry struct {
 	registry map[string]Handler
 }
 
-func NewHandlerRegistry() *HandlerRegistry {
+func newHandlerRegistry() *HandlerRegistry {
 	return &HandlerRegistry{
 		registry: make(map[string]Handler),
 	}

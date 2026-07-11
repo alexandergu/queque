@@ -2,12 +2,15 @@ package queue
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type Job struct {
+	mu sync.Mutex
+
 	ID       uuid.UUID
 	Type     string
 	State    State
@@ -34,12 +37,62 @@ func NewJob(dto JobDto) *Job {
 	}
 }
 
-func (j *Job) transitionTo(s State) error {
-	if !j.State.CanTransition(s) {
+func (j *Job) run() error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if !j.State.CanTransition(JobStateRunning) {
 		return fmt.Errorf("state transition error")
 	}
 
-	j.State = s
+	j.State = JobStateRunning
+	j.StartedAt = time.Now()
 
 	return nil
+}
+
+func (j *Job) complete(result []byte) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if !j.State.CanTransition(JobStateCompleted) {
+		return fmt.Errorf("state transition error")
+	}
+
+	j.State = JobStateCompleted
+	j.FinishedAt = time.Now()
+	j.Result = result
+
+	return nil
+}
+
+func (j *Job) fail() error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if !j.State.CanTransition(JobStateFailed) {
+		return fmt.Errorf("state transition error")
+	}
+
+	j.State = JobStateFailed
+	j.FinishedAt = time.Now()
+
+	return nil
+}
+
+func (j *Job) toSnapshot() JobSnapshot {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	return JobSnapshot{
+		ID:         j.ID,
+		Type:       j.Type,
+		State:      j.State,
+		Priority:   j.Priority,
+		Payload:    j.Payload,
+		Result:     j.Result,
+		CreatedAt:  j.CreatedAt,
+		StartedAt:  j.StartedAt,
+		FinishedAt: j.FinishedAt,
+	}
 }
