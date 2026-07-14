@@ -68,6 +68,25 @@ func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
 	return job.toSnapshot(), nil
 }
 
+func (e *Engine) Cancel(id uuid.UUID) (JobSnapshot, error) {
+	job, err := e.registry.Get(id)
+	if err != nil {
+		log.Printf("cannot find?")
+		return JobSnapshot{}, err
+	}
+
+	err = job.cancel()
+	if err != nil {
+		log.Printf("cannot transition job cancel")
+
+		return JobSnapshot{}, err
+	}
+
+	e.eventBus.Publish(Event{EventTypeJobCancelled, job.toSnapshot()})
+
+	return job.toSnapshot(), nil
+}
+
 func (e *Engine) Stop() error {
 	e.cancel()
 	e.wg.Wait()
@@ -151,6 +170,10 @@ func (e *Engine) process(job *Job) {
 
 	reason = job.run()
 	if reason != nil {
+		if job.toSnapshot().State == JobStateCancelled {
+			return
+		}
+
 		if err := job.fail(reason); err != nil {
 			log.Printf("job %s failed to mark as failed", job.ID)
 

@@ -29,5 +29,6 @@ func (router *Router) initRoutes() {
 	router.mux.HandleFunc("POST /api/jobs", router.handleCreateJob)
 	router.mux.HandleFunc("GET /api/jobs", router.handleGetAllJobs)
 	router.mux.HandleFunc("GET /api/jobs/{id}", router.handleGetJob)
+	router.mux.HandleFunc("PUT /api/jobs/{id}/cancel", router.handleCancelJob)
 	router.mux.HandleFunc("GET /api/jobs/events", router.handleJobEvents)
 }

@@ -29,7 +29,6 @@ func (router *Router) handleGetAllJobs(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	job, err := GetJobFromRequest(router.engine, r)
-
 	if err != nil {
 		httpx.Error(w, err)
 
@@ -37,6 +36,24 @@ func (router *Router) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.Resource(w, job, RenderJob)
+}
+
+func (router *Router) handleCancelJob(w http.ResponseWriter, r *http.Request) {
+	job, err := GetJobFromRequest(router.engine, r)
+	if err != nil {
+		httpx.Error(w, err)
+
+		return
+	}
+
+	snapshot, err := router.engine.Cancel(job.ID)
+	if err != nil {
+		httpx.Error(w, err)
+
+		return
+	}
+
+	httpx.Resource(w, snapshot, RenderJob)
 }
 
 func (router *Router) handleJobEvents(w http.ResponseWriter, r *http.Request) {

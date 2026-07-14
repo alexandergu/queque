@@ -82,6 +82,20 @@ func (j *Job) fail(reason error) error {
 	return nil
 }
 
+func (j *Job) cancel() error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if !j.State.CanTransition(JobStateCancelled) {
+		return fmt.Errorf("cannot job transition from %s to %s", j.State, JobStateCancelled)
+	}
+
+	j.State = JobStateCancelled
+	j.FinishedAt = time.Now()
+
+	return nil
+}
+
 func (j *Job) toSnapshot() JobSnapshot {
 	j.mu.Lock()
 	defer j.mu.Unlock()
