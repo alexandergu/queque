@@ -28,6 +28,6 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (router *Router) initRoutes() {
 	router.mux.HandleFunc("POST /api/jobs", router.handleCreateJob)
 	router.mux.HandleFunc("GET /api/jobs", router.handleGetAllJobs)
-	router.mux.HandleFunc("GET /api/jobs/{job}", router.handleGetJob)
+	router.mux.HandleFunc("GET /api/jobs/{id}", router.handleGetJob)
 	router.mux.HandleFunc("GET /api/jobs/events", router.handleJobEvents)
 }

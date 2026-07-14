@@ -7,15 +7,16 @@ import (
 )
 
 type JobSnapshot struct {
-	ID       uuid.UUID
-	Type     string
-	State    State
-	Priority int
+	ID       uuid.UUID `json:"id"`
+	Type     string    `json:"type"`
+	State    State     `json:"state"`
+	Priority int       `json:"priority"`
 
-	Payload []byte
-	Result  []byte
+	Payload []byte `json:"payload"`
+	Result  []byte `json:"result"`
+	Error   string `json:"error"`
 
-	CreatedAt  time.Time
-	StartedAt  time.Time
-	FinishedAt time.Time
+	CreatedAt  time.Time `json:"createdAt"`
+	StartedAt  time.Time `json:"startedAt"`
+	FinishedAt time.Time `json:"finishedAt"`
 }

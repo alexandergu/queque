@@ -24,7 +24,7 @@ var QueueHandlers = map[string]queue.Handler{
 
 	"test3": func(bytes []byte) ([]byte, error) {
 		fmt.Println("third process")
-		time.Sleep(1 * time.Second)
+		time.Sleep(4 * time.Second)
 
 		return []byte{}, nil
 	},

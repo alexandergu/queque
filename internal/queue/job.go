@@ -93,6 +93,7 @@ func (j *Job) toSnapshot() JobSnapshot {
 		Priority:   j.Priority,
 		Payload:    j.Payload,
 		Result:     j.Result,
+		Error:      j.Error,
 		CreatedAt:  j.CreatedAt,
 		StartedAt:  j.StartedAt,
 		FinishedAt: j.FinishedAt,

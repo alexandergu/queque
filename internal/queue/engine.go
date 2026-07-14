@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"fmt"
+	"log"
 	"slices"
 	"sync"
 
@@ -54,10 +55,10 @@ func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
 	}
 
 	job := NewJob(data)
-	e.eventBus.Publish(Event{Type: EventTypeJobScheduled, Job: job.toSnapshot()})
 
 	e.registry.Add(job)
 	e.queue.Push(job)
+	e.eventBus.Publish(Event{Type: EventTypeJobScheduled, Job: job.toSnapshot()})
 
 	select {
 	case e.wake <- struct{}{}:
@@ -71,6 +72,7 @@ func (e *Engine) Stop() error {
 	e.cancel()
 	e.wg.Wait()
 	e.pool.Stop()
+	e.eventBus.Close()
 
 	return nil
 }
@@ -134,17 +136,27 @@ func (e *Engine) dispatch() {
 }
 
 func (e *Engine) process(job *Job) {
-	handler, err := e.handlers.GetById(job.Type)
-	if err != nil {
-		_ = job.fail(err)
+	handler, reason := e.handlers.GetById(job.Type)
+	if reason != nil {
+		if err := job.fail(reason); err != nil {
+			log.Printf("job %s failed to mark as failed", job.ID)
+
+			return
+		}
+
 		e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
 
 		return
 	}
 
-	err = job.run()
-	if err != nil {
-		_ = job.fail(err)
+	reason = job.run()
+	if reason != nil {
+		if err := job.fail(reason); err != nil {
+			log.Printf("job %s failed to mark as failed", job.ID)
+
+			return
+		}
+
 		e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
 
 		return
@@ -152,14 +164,25 @@ func (e *Engine) process(job *Job) {
 
 	e.eventBus.Publish(Event{EventTypeJobRunning, job.toSnapshot()})
 
-	result, err := handler(job.Payload)
-	if err != nil {
-		_ = job.fail(err)
+	result, reason := handler(job.Payload)
+	if reason != nil {
+		if err := job.fail(reason); err != nil {
+			log.Printf("job %s failed to mark as failed", job.ID)
+
+			return
+		}
+
 		e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
 
 		return
 	}
 
-	_ = job.complete(result)
+	reason = job.complete(result)
+	if reason != nil {
+		log.Printf("job %s failed to mark as completed", job.ID)
+
+		return
+	}
+
 	e.eventBus.Publish(Event{EventTypeJobCompleted, job.toSnapshot()})
 }
