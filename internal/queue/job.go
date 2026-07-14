@@ -18,6 +18,7 @@ type Job struct {
 
 	Payload []byte
 	Result  []byte
+	Error   string
 
 	CreatedAt  time.Time
 	StartedAt  time.Time
@@ -66,7 +67,7 @@ func (j *Job) complete(result []byte) error {
 	return nil
 }
 
-func (j *Job) fail() error {
+func (j *Job) fail(reason error) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -76,6 +77,7 @@ func (j *Job) fail() error {
 
 	j.State = JobStateFailed
 	j.FinishedAt = time.Now()
+	j.Error = reason.Error()
 
 	return nil
 }

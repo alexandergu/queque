@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,10 +22,16 @@ func main() {
 	}
 	engine.Start()
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	router := api.NewRouter(engine)
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: router,
+		BaseContext: func(listener net.Listener) context.Context {
+			return ctx
+		},
 	}
 
 	go func() {
@@ -33,8 +40,6 @@ func main() {
 		}
 	}()
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 	<-ctx.Done()
 
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)

@@ -14,6 +14,7 @@ type Engine struct {
 	queue    *JobQueue
 	pool     *WorkerPool
 	handlers *HandlerRegistry
+	eventBus *EventBus
 
 	jobs   chan *Job
 	wake   chan struct{}
@@ -30,6 +31,7 @@ func NewEngine() *Engine {
 		registry: newJobRegistry(),
 		queue:    newJobQueue(),
 		handlers: newHandlerRegistry(),
+		eventBus: newEventBus(),
 		jobs:     jobsChannel,
 		wake:     make(chan struct{}, 1),
 		ctx:      ctx,
@@ -52,6 +54,7 @@ func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
 	}
 
 	job := NewJob(data)
+	e.eventBus.Publish(Event{Type: EventTypeJobScheduled, Job: job.toSnapshot()})
 
 	e.registry.Add(job)
 	e.queue.Push(job)
@@ -100,6 +103,10 @@ func (e *Engine) GetJob(id uuid.UUID) (JobSnapshot, error) {
 	return job.toSnapshot(), nil
 }
 
+func (e *Engine) Subscribe() (<-chan Event, func()) {
+	return e.eventBus.Subscribe()
+}
+
 func (e *Engine) dispatch() {
 	defer e.wg.Done()
 
@@ -129,24 +136,30 @@ func (e *Engine) dispatch() {
 func (e *Engine) process(job *Job) {
 	handler, err := e.handlers.GetById(job.Type)
 	if err != nil {
-		_ = job.fail()
+		_ = job.fail(err)
+		e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
 
 		return
 	}
 
 	err = job.run()
 	if err != nil {
-		_ = job.fail()
+		_ = job.fail(err)
+		e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
 
 		return
 	}
 
+	e.eventBus.Publish(Event{EventTypeJobRunning, job.toSnapshot()})
+
 	result, err := handler(job.Payload)
 	if err != nil {
-		_ = job.fail()
+		_ = job.fail(err)
+		e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
 
 		return
 	}
 
 	_ = job.complete(result)
+	e.eventBus.Publish(Event{EventTypeJobCompleted, job.toSnapshot()})
 }
