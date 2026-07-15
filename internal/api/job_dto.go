@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/alexandergu/queque/internal/queue"
@@ -8,7 +9,7 @@ import (
 
 type CreateJobData struct {
 	Type     string
-	Payload  []byte
+	Payload  json.RawMessage
 	Priority int
 }
 
@@ -19,6 +20,10 @@ func (dto CreateJobData) Validate() error {
 
 	if dto.Type == "" {
 		return fmt.Errorf("type field is mandatory")
+	}
+
+	if len(dto.Payload) == 0 {
+		return fmt.Errorf("payload is mandatory")
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -16,8 +17,8 @@ type Job struct {
 	State    State
 	Priority int
 
-	Payload []byte
-	Result  []byte
+	Payload json.RawMessage
+	Result  json.RawMessage
 	Error   string
 
 	CreatedAt  time.Time

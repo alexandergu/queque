@@ -1,7 +1,9 @@
 package queue
 
+import "encoding/json"
+
 type JobDto struct {
 	Type     string
-	Payload  []byte
+	Payload  json.RawMessage
 	Priority int
 }
