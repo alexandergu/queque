@@ -14,9 +14,19 @@ func (router *Router) handleResizeWorkers(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err = router.engine.Resize(data.Count); err != nil {
+	if err = router.engine.ResizeWorkersCount(data.Count); err != nil {
 		httpx.Error(w, err)
+
+		return
 	}
 
 	httpx.Ok(w)
+}
+
+func (router *Router) handleWorkersCount(w http.ResponseWriter, r *http.Request) {
+	httpx.Resource(w, WorkersCount{
+		Count: router.engine.WorkersCount(),
+	}, func(s WorkersCount) any {
+		return s
+	})
 }

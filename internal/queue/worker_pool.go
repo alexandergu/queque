@@ -46,6 +46,13 @@ func (pool *WorkerPool) Stop() {
 	pool.wg.Wait()
 }
 
+func (pool *WorkerPool) Len() int {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	return len(pool.workers)
+}
+
 func (pool *WorkerPool) Resize(count int) {
 	if count < 0 {
 		count = 0

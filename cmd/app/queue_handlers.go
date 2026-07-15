@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	"github.com/alexandergu/queque/internal/queue"
@@ -30,7 +30,7 @@ var QueueHandlers = map[string]queue.Handler{
 		work := time.After(duration)
 
 		if payload.FailChance != nil && rand.Float32() < *payload.FailChance {
-			failAfter := time.Duration(rand.Int63n(int64(duration)))
+			failAfter := time.Duration(rand.Int64N(int64(duration)))
 			failCh = time.After(failAfter)
 		}
 

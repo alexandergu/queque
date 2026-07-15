@@ -32,5 +32,6 @@ func (router *Router) initRoutes() {
 	router.mux.HandleFunc("PUT /api/jobs/{id}/cancel", router.handleCancelJob)
 	router.mux.HandleFunc("GET /api/jobs/events", router.handleJobEvents)
 
-	router.mux.HandleFunc("PUT /api/workers/count", router.handleResizeWorkers)
+	router.mux.HandleFunc("GET /api/workers", router.handleWorkersCount)
+	router.mux.HandleFunc("PUT /api/workers", router.handleResizeWorkers)
 }

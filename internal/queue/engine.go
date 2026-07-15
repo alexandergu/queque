@@ -124,10 +124,14 @@ func (e *Engine) GetJob(id uuid.UUID) (JobSnapshot, error) {
 	return job.toSnapshot(), nil
 }
 
-func (e *Engine) Resize(count int) error {
+func (e *Engine) ResizeWorkersCount(count int) error {
 	e.pool.Resize(count)
 
 	return nil
+}
+
+func (e *Engine) WorkersCount() int {
+	return e.pool.Len()
 }
 
 func (e *Engine) Subscribe() (<-chan Event, func()) {

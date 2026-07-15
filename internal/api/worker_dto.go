@@ -2,6 +2,10 @@ package api
 
 import "fmt"
 
+type WorkersCount struct {
+	Count int `json:"count"`
+}
+
 type ResizeWorkersDto struct {
 	Count int
 }
