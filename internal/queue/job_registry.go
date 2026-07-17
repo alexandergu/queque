@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
@@ -29,7 +28,7 @@ func (registry *JobRegistry) Get(id uuid.UUID) (*Job, error) {
 
 	job, ok := registry.jobs[id]
 	if !ok {
-		return nil, fmt.Errorf("job %s not found", id)
+		return nil, &JobNotFoundError{id}
 	}
 
 	return job, nil

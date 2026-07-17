@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/alexandergu/queque/internal/httpx"
 	"github.com/alexandergu/queque/internal/queue"
 	"github.com/google/uuid"
 )
@@ -16,17 +17,17 @@ func GetJobFromRequest(registry *queue.Engine, r *http.Request) (queue.JobSnapsh
 	id := r.PathValue("id")
 
 	if id == "" {
-		return queue.JobSnapshot{}, fmt.Errorf("job not found")
+		return queue.JobSnapshot{}, &httpx.ConvertError{Message: fmt.Sprintf("job id is empty")}
 	}
 
 	ID, err := uuid.Parse(id)
 	if err != nil {
-		return queue.JobSnapshot{}, fmt.Errorf("job not found")
+		return queue.JobSnapshot{}, &httpx.ConvertError{Message: fmt.Sprintf("invalid job id")}
 	}
 
 	job, err := registry.GetJob(ID)
 	if err != nil {
-		return queue.JobSnapshot{}, fmt.Errorf("job not found")
+		return queue.JobSnapshot{}, err
 	}
 
 	return job, nil

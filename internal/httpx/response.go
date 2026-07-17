@@ -2,8 +2,14 @@ package httpx
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 )
+
+type errorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
 
 func writeJson(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -31,10 +37,36 @@ func Resource[T any](w http.ResponseWriter, item T, renderer func(T) any) {
 	writeJson(w, http.StatusOK, result)
 }
 
-func NotFound(w http.ResponseWriter) {
-	writeJson(w, http.StatusNotFound, struct{}{})
-}
-
 func Error(w http.ResponseWriter, err error) {
-	writeJson(w, http.StatusInternalServerError, struct{}{})
+	if _, ok := errors.AsType[*NotFoundError](err); ok {
+		writeJson(w, http.StatusNotFound, errorResponse{
+			Error:   "not_found",
+			Message: err.Error(),
+		})
+
+		return
+	}
+
+	if _, ok := errors.AsType[*BadRequestError](err); ok {
+		writeJson(w, http.StatusBadRequest, errorResponse{
+			Error:   "bad_request",
+			Message: err.Error(),
+		})
+
+		return
+	}
+
+	if _, ok := errors.AsType[*ConflictError](err); ok {
+		writeJson(w, http.StatusConflict, errorResponse{
+			Error:   "conflict",
+			Message: err.Error(),
+		})
+
+		return
+	}
+
+	writeJson(w, http.StatusInternalServerError, errorResponse{
+		Error:   "internal_error",
+		Message: err.Error(),
+	})
 }

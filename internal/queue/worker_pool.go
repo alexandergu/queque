@@ -2,7 +2,6 @@ package queue
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sync"
 
@@ -123,5 +122,5 @@ func (pool *WorkerPool) stopWorker(id string) error {
 		return nil
 	}
 
-	return fmt.Errorf("worker %s not found", id)
+	return &WorkerNotFoundError{id}
 }

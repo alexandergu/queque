@@ -2,7 +2,6 @@ package queue
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -44,7 +43,7 @@ func (j *Job) run() error {
 	defer j.mu.Unlock()
 
 	if !j.State.CanTransition(JobStateRunning) {
-		return fmt.Errorf("state transition error")
+		return &JobTransitionError{j.State, JobStateRunning}
 	}
 
 	j.State = JobStateRunning
@@ -58,7 +57,7 @@ func (j *Job) complete(result []byte) error {
 	defer j.mu.Unlock()
 
 	if !j.State.CanTransition(JobStateCompleted) {
-		return fmt.Errorf("state transition error")
+		return &JobTransitionError{j.State, JobStateCompleted}
 	}
 
 	j.State = JobStateCompleted
@@ -73,7 +72,7 @@ func (j *Job) fail(reason error) error {
 	defer j.mu.Unlock()
 
 	if !j.State.CanTransition(JobStateFailed) {
-		return fmt.Errorf("state transition error")
+		return &JobTransitionError{j.State, JobStateFailed}
 	}
 
 	j.State = JobStateFailed
@@ -88,7 +87,7 @@ func (j *Job) cancel() error {
 	defer j.mu.Unlock()
 
 	if !j.State.CanTransition(JobStateCancelled) {
-		return fmt.Errorf("cannot job transition from %s to %s", j.State, JobStateCancelled)
+		return &JobTransitionError{j.State, JobStateCancelled}
 	}
 
 	j.State = JobStateCancelled

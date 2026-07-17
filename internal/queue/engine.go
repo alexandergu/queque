@@ -2,7 +2,6 @@ package queue
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"slices"
 	"sync"
@@ -51,7 +50,7 @@ func (e *Engine) Start() {
 
 func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
 	if e.ctx.Err() != nil {
-		return JobSnapshot{}, fmt.Errorf("engine has already stopped")
+		return JobSnapshot{}, &EngineRunError{"engine has already stopped"}
 	}
 
 	job := NewJob(data)
@@ -71,14 +70,11 @@ func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
 func (e *Engine) Cancel(id uuid.UUID) (JobSnapshot, error) {
 	job, err := e.registry.Get(id)
 	if err != nil {
-		log.Printf("cannot find?")
 		return JobSnapshot{}, err
 	}
 
 	err = job.cancel()
 	if err != nil {
-		log.Printf("cannot transition job cancel")
-
 		return JobSnapshot{}, err
 	}
 

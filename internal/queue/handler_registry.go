@@ -1,7 +1,5 @@
 package queue
 
-import "fmt"
-
 type HandlerRegistry struct {
 	registry map[string]Handler
 }
@@ -20,7 +18,7 @@ func (r *HandlerRegistry) GetById(id string) (Handler, error) {
 	handler, ok := r.registry[id]
 
 	if !ok {
-		return nil, fmt.Errorf("not exist handler")
+		return nil, &HandlerNotFoundError{id}
 	}
 
 	return handler, nil

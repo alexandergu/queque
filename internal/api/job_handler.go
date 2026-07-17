@@ -2,22 +2,30 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/alexandergu/queque/internal/httpx"
+	"github.com/alexandergu/queque/internal/queue"
 )
 
 func (router *Router) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 	data, err := httpx.Convert[CreateJobData](r)
 
 	if err != nil {
+		httpx.Error(w, &httpx.BadRequestError{ExternalError: err})
+
+		return
+	}
+
+	job, err := router.engine.Run(data.ToJobDto())
+	if err != nil {
 		httpx.Error(w, err)
 
 		return
 	}
 
-	job, _ := router.engine.Run(data.ToJobDto())
 	httpx.Resource(w, job, RenderJob)
 }
 
@@ -30,7 +38,13 @@ func (router *Router) handleGetAllJobs(w http.ResponseWriter, r *http.Request) {
 func (router *Router) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	job, err := GetJobFromRequest(router.engine, r)
 	if err != nil {
-		httpx.Error(w, err)
+		if _, ok := errors.AsType[*queue.JobNotFoundError](err); ok {
+			httpx.Error(w, &httpx.NotFoundError{ExternalError: err})
+
+			return
+		}
+
+		httpx.Error(w, &httpx.BadRequestError{ExternalError: err})
 
 		return
 	}
@@ -41,13 +55,25 @@ func (router *Router) handleGetJob(w http.ResponseWriter, r *http.Request) {
 func (router *Router) handleCancelJob(w http.ResponseWriter, r *http.Request) {
 	job, err := GetJobFromRequest(router.engine, r)
 	if err != nil {
-		httpx.Error(w, err)
+		if _, ok := errors.AsType[*queue.JobNotFoundError](err); ok {
+			httpx.Error(w, &httpx.NotFoundError{ExternalError: err})
+
+			return
+		}
+
+		httpx.Error(w, &httpx.BadRequestError{ExternalError: err})
 
 		return
 	}
 
 	snapshot, err := router.engine.Cancel(job.ID)
 	if err != nil {
+		if _, ok := errors.AsType[*queue.JobTransitionError](err); ok {
+			httpx.Error(w, &httpx.ConflictError{ExternalError: err})
+
+			return
+		}
+
 		httpx.Error(w, err)
 
 		return
