@@ -6,18 +6,18 @@ import (
 )
 
 type Validatable interface {
-	Validate() error
+	Validate() *ValidationError
 }
 
 func Convert[T Validatable](r *http.Request) (T, error) {
 	var data T
 
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		return data, &ConvertError{"Convert error"}
+		return data, &ConvertError{"invalid request body"}
 	}
 
 	if err := data.Validate(); err != nil {
-		return data, &ValidationError{"Validation error"}
+		return data, err
 	}
 
 	return data, nil

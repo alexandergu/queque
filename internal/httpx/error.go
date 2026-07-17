@@ -8,8 +8,14 @@ func (err *ConvertError) Error() string {
 	return err.Message
 }
 
+type Violation struct {
+	Path    string `json:"path"`
+	Message string `json:"message"`
+}
+
 type ValidationError struct {
 	Message string
+	Errors  []Violation
 }
 
 func (err *ValidationError) Error() string {
@@ -22,6 +28,10 @@ type BadRequestError struct {
 
 func (err *BadRequestError) Error() string {
 	return err.ExternalError.Error()
+}
+
+func (err *BadRequestError) Unwrap() error {
+	return err.ExternalError
 }
 
 type NotFoundError struct {

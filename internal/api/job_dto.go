@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/alexandergu/queque/internal/httpx"
 	"github.com/alexandergu/queque/internal/queue"
 )
 
@@ -13,17 +14,35 @@ type CreateJobData struct {
 	Priority int
 }
 
-func (dto CreateJobData) Validate() error {
+func (dto CreateJobData) Validate() *httpx.ValidationError {
+	var violations []httpx.Violation
+
 	if dto.Priority <= 0 {
-		return fmt.Errorf("priority must be 1 or more")
+		violations = append(violations, httpx.Violation{
+			Path:    "Priority",
+			Message: fmt.Sprintf("priority must be at least 1, got %d", dto.Priority),
+		})
 	}
 
 	if dto.Type == "" {
-		return fmt.Errorf("type field is mandatory")
+		violations = append(violations, httpx.Violation{
+			Path:    "Type",
+			Message: "type is required",
+		})
 	}
 
 	if len(dto.Payload) == 0 {
-		return fmt.Errorf("payload is mandatory")
+		violations = append(violations, httpx.Violation{
+			Path:    "Payload",
+			Message: "payload is required",
+		})
+	}
+
+	if len(violations) > 0 {
+		return &httpx.ValidationError{
+			Message: "create job payload validation errors",
+			Errors:  violations,
+		}
 	}
 
 	return nil

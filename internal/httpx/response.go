@@ -7,8 +7,9 @@ import (
 )
 
 type errorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
+	Error   string      `json:"error"`
+	Message string      `json:"message"`
+	Errors  []Violation `json:"errors,omitempty"`
 }
 
 func writeJson(w http.ResponseWriter, status int, data any) {
@@ -42,6 +43,16 @@ func Error(w http.ResponseWriter, err error) {
 		writeJson(w, http.StatusNotFound, errorResponse{
 			Error:   "not_found",
 			Message: err.Error(),
+		})
+
+		return
+	}
+
+	if validationError, ok := errors.AsType[*ValidationError](err); ok {
+		writeJson(w, http.StatusBadRequest, errorResponse{
+			Error:   "validation_error",
+			Message: validationError.Message,
+			Errors:  validationError.Errors,
 		})
 
 		return
