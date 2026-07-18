@@ -94,11 +94,8 @@ func (pool *WorkerPool) runWorker(ctx context.Context, worker *Worker) {
 
 	for {
 		select {
-		case <-pool.ctx.Done():
-			return
 		case <-ctx.Done():
 			return
-
 		case job, ok := <-pool.jobs:
 			if !ok {
 				return
