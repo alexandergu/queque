@@ -1,3 +1,5 @@
 package queue
 
-type Handler func([]byte) ([]byte, error)
+import "context"
+
+type Handler func(context.Context, []byte) ([]byte, error)

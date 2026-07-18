@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"log"
 	"slices"
 	"sync"
@@ -10,11 +11,12 @@ import (
 )
 
 type Engine struct {
-	registry *JobRegistry
-	queue    *JobQueue
-	pool     *WorkerPool
-	handlers *HandlerRegistry
-	eventBus *EventBus
+	registry   *JobRegistry
+	queue      *JobQueue
+	pool       *WorkerPool
+	handlers   *HandlerRegistry
+	eventBus   *EventBus
+	executions *ExecutionRegistry
 
 	jobs   chan *Job
 	wake   chan struct{}
@@ -28,14 +30,15 @@ func NewEngine() *Engine {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	engine := &Engine{
-		registry: newJobRegistry(),
-		queue:    newJobQueue(),
-		handlers: newHandlerRegistry(),
-		eventBus: newEventBus(),
-		jobs:     jobsChannel,
-		wake:     make(chan struct{}, 1),
-		ctx:      ctx,
-		cancel:   cancel,
+		registry:   newJobRegistry(),
+		queue:      newJobQueue(),
+		handlers:   newHandlerRegistry(),
+		eventBus:   newEventBus(),
+		executions: newExecutionRegistry(),
+		jobs:       jobsChannel,
+		wake:       make(chan struct{}, 1),
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 	engine.pool = NewWorkerPool(jobsChannel, engine.process)
 
@@ -78,6 +81,7 @@ func (e *Engine) Cancel(id uuid.UUID) (JobSnapshot, error) {
 		return JobSnapshot{}, err
 	}
 
+	e.executions.Cancel(id)
 	e.eventBus.Publish(Event{EventTypeJobCancelled, job.toSnapshot()})
 
 	return job.toSnapshot(), nil
@@ -174,6 +178,12 @@ func (e *Engine) process(job *Job) {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(e.ctx)
+	defer cancel()
+
+	e.executions.Add(job.ID, cancel)
+	defer e.executions.Remove(job.ID)
+
 	reason = job.run()
 	if reason != nil {
 		if job.toSnapshot().State == JobStateCancelled {
@@ -192,9 +202,17 @@ func (e *Engine) process(job *Job) {
 	}
 
 	e.eventBus.Publish(Event{EventTypeJobRunning, job.toSnapshot()})
+	result, reason := handler(ctx, job.Payload)
 
-	result, reason := handler(job.Payload)
 	if reason != nil {
+		if errors.Is(reason, context.Canceled) {
+			if err := job.cancel(); err == nil {
+				e.eventBus.Publish(Event{EventTypeJobCancelled, job.toSnapshot()})
+			}
+
+			return
+		}
+
 		if err := job.fail(reason); err != nil {
 			log.Printf("job %s failed to mark as failed", job.ID)
 

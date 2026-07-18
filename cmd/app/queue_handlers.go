@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
@@ -10,7 +11,7 @@ import (
 )
 
 var QueueHandlers = map[string]queue.Handler{
-	"type1": func(bytes []byte) ([]byte, error) {
+	"type1": func(ctx context.Context, bytes []byte) ([]byte, error) {
 		payload := Payload{}
 
 		if err := json.Unmarshal(bytes, &payload); err != nil {
@@ -35,6 +36,8 @@ var QueueHandlers = map[string]queue.Handler{
 		}
 
 		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		case <-failCh:
 			return nil, fmt.Errorf("simulated failure")
 		case <-work:
