@@ -164,7 +164,7 @@ func (e *Engine) dispatch() {
 	}
 }
 
-func (e *Engine) process(job *Job) {
+func (e *Engine) process(workerCtx context.Context, job *Job) {
 	handler, reason := e.handlers.GetById(job.Type)
 	if reason != nil {
 		if err := job.fail(reason); err != nil {
@@ -178,7 +178,7 @@ func (e *Engine) process(job *Job) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(e.ctx)
+	ctx, cancel := context.WithCancel(workerCtx)
 	defer cancel()
 
 	e.executions.Add(job.ID, cancel)

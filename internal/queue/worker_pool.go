@@ -18,10 +18,10 @@ type WorkerPool struct {
 	stopped bool
 
 	jobs    <-chan *Job
-	process func(*Job)
+	process func(context.Context, *Job)
 }
 
-func NewWorkerPool(jobs <-chan *Job, process func(*Job)) *WorkerPool {
+func NewWorkerPool(jobs <-chan *Job, process func(context.Context, *Job)) *WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &WorkerPool{
@@ -68,33 +68,35 @@ func (pool *WorkerPool) Resize(count int) {
 
 	if currentLength < count {
 		for i := currentLength; i < count; i++ {
+			ctx, cancel := context.WithCancel(pool.ctx)
+
 			w := &Worker{
-				ID:   uuid.NewString(),
-				quit: make(chan struct{}),
+				ID:     uuid.NewString(),
+				cancel: cancel,
 			}
 
 			pool.workers = append(pool.workers, w)
 
 			pool.wg.Add(1)
-			go pool.runWorker(w)
+			go pool.runWorker(ctx, w)
 		}
 	} else if currentLength > count {
 		for i := count; i < currentLength; i++ {
-			close(pool.workers[i].quit)
+			pool.workers[i].cancel()
 		}
 
 		pool.workers = slices.Delete(pool.workers, count, currentLength)
 	}
 }
 
-func (pool *WorkerPool) runWorker(worker *Worker) {
+func (pool *WorkerPool) runWorker(ctx context.Context, worker *Worker) {
 	defer pool.wg.Done()
 
 	for {
 		select {
 		case <-pool.ctx.Done():
 			return
-		case <-worker.quit:
+		case <-ctx.Done():
 			return
 
 		case job, ok := <-pool.jobs:
@@ -102,7 +104,7 @@ func (pool *WorkerPool) runWorker(worker *Worker) {
 				return
 			}
 
-			pool.process(job)
+			pool.process(ctx, job)
 		}
 	}
 }
@@ -116,7 +118,7 @@ func (pool *WorkerPool) stopWorker(id string) error {
 			continue
 		}
 
-		close(worker.quit)
+		worker.cancel()
 		pool.workers = slices.Delete(pool.workers, i, i+1)
 
 		return nil

@@ -1,6 +1,8 @@
 package queue
 
+import "context"
+
 type Worker struct {
-	ID   string
-	quit chan struct{}
+	ID     string
+	cancel context.CancelFunc
 }
