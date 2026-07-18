@@ -6,7 +6,7 @@ import (
 )
 
 type Validatable interface {
-	Validate() *ValidationError
+	Validate() error
 }
 
 func Convert[T Validatable](r *http.Request) (T, error) {

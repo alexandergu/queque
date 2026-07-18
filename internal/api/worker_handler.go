@@ -7,7 +7,7 @@ import (
 )
 
 func (router *Router) handleResizeWorkers(w http.ResponseWriter, r *http.Request) {
-	data, err := httpx.Convert[ResizeWorkersDto](r)
+	data, err := httpx.Convert[ResizeWorkersData](r)
 	if err != nil {
 		httpx.Error(w, err)
 

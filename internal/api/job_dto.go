@@ -9,38 +9,38 @@ import (
 )
 
 type CreateJobData struct {
-	Type     string
-	Payload  json.RawMessage
-	Priority int
+	Type     string          `json:"type"`
+	Payload  json.RawMessage `json:"payload"`
+	Priority int             `json:"priority"`
 }
 
-func (dto CreateJobData) Validate() *httpx.ValidationError {
+func (dto CreateJobData) Validate() error {
 	var violations []httpx.Violation
 
 	if dto.Priority <= 0 {
 		violations = append(violations, httpx.Violation{
-			Path:    "Priority",
+			Path:    "priority",
 			Message: fmt.Sprintf("priority must be at least 1, got %d", dto.Priority),
 		})
 	}
 
 	if dto.Type == "" {
 		violations = append(violations, httpx.Violation{
-			Path:    "Type",
+			Path:    "type",
 			Message: "type is required",
 		})
 	}
 
 	if len(dto.Payload) == 0 {
 		violations = append(violations, httpx.Violation{
-			Path:    "Payload",
+			Path:    "payload",
 			Message: "payload is required",
 		})
 	}
 
 	if len(violations) > 0 {
 		return &httpx.ValidationError{
-			Message: "create job payload validation errors",
+			Message: "validation failed",
 			Errors:  violations,
 		}
 	}
