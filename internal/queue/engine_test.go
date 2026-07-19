@@ -28,21 +28,7 @@ func TestEngine_RunCompleteJob(t *testing.T) {
 		t.Fatalf("job cannot be run: %s", err.Error())
 	}
 
-loop:
-	for {
-		select {
-		case event := <-ch:
-			if event.Type == EventTypeJobCompleted {
-				break loop
-			}
-
-			if event.Type == EventTypeJobCancelled || event.Type == EventTypeJobFailed {
-				t.Fatalf("unexpected job state: %s", event.Job.State)
-			}
-		case <-time.After(time.Second):
-			t.Fatal("timeout, job unprocessed")
-		}
-	}
+	waitForEvent(t, ch, EventTypeJobCompleted)
 
 	job, err := engine.GetJob(snapshot.ID)
 	if err != nil {
@@ -82,21 +68,7 @@ func TestEngine_RunFailedJob(t *testing.T) {
 		t.Fatalf("job cannot be run: %s", err.Error())
 	}
 
-loop:
-	for {
-		select {
-		case event := <-ch:
-			if event.Type == EventTypeJobFailed {
-				break loop
-			}
-
-			if event.Type == EventTypeJobCancelled || event.Type == EventTypeJobCompleted {
-				t.Fatalf("unexpected job state: %s", event.Job.State)
-			}
-		case <-time.After(time.Second):
-			t.Fatal("timeout, job unprocessed")
-		}
-	}
+	waitForEvent(t, ch, EventTypeJobFailed)
 
 	job, err := engine.GetJob(snapshot.ID)
 	if err != nil {
@@ -141,26 +113,12 @@ func TestEngine_CancelJob(t *testing.T) {
 		t.Fatalf("job cannot be run: %s", err.Error())
 	}
 
-loop:
-	for {
-		select {
-		case event := <-ch:
-			if event.Type == EventTypeJobRunning {
-				_, err = engine.Cancel(snapshot.ID)
-				if err != nil {
-					t.Fatalf("job cannot be cancel: %s", err.Error())
-				}
-
-				continue
-			}
-
-			if event.Type == EventTypeJobCancelled {
-				break loop
-			}
-		case <-time.After(time.Second):
-			t.Fatal("timeout, job unprocessed")
-		}
+	waitForEvent(t, ch, EventTypeJobRunning)
+	_, err = engine.Cancel(snapshot.ID)
+	if err != nil {
+		t.Fatalf("job cannot be cancel: %s", err.Error())
 	}
+	waitForEvent(t, ch, EventTypeJobCancelled)
 
 	job, err := engine.GetJob(snapshot.ID)
 	if err != nil {
@@ -196,17 +154,7 @@ func TestEngine_RunUnknownHandler(t *testing.T) {
 		t.Fatalf("job cannot be run: %s", err.Error())
 	}
 
-loop:
-	for {
-		select {
-		case event := <-ch:
-			if event.Type == EventTypeJobFailed {
-				break loop
-			}
-		case <-time.After(time.Second):
-			t.Fatal("timeout, job unprocessed")
-		}
-	}
+	waitForEvent(t, ch, EventTypeJobFailed)
 
 	job, err := engine.GetJob(snapshot.ID)
 	if err != nil {
@@ -228,5 +176,24 @@ loop:
 
 	if job.FinishedAt.IsZero() {
 		t.Errorf("finishedAt is zero")
+	}
+}
+
+func waitForEvent(t *testing.T, ch <-chan Event, wantEvent EventType) {
+	t.Helper()
+
+	for {
+		select {
+		case event := <-ch:
+			if event.Type == wantEvent {
+				return
+			}
+
+			if event.Type == EventTypeJobCancelled || event.Type == EventTypeJobCompleted || event.Type == EventTypeJobFailed {
+				t.Fatalf("got terminal event type %s, want %s", event.Type, wantEvent)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timeout, waiting for event %s", wantEvent)
+		}
 	}
 }
