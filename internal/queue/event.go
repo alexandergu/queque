@@ -9,6 +9,7 @@ type Event struct {
 
 const (
 	EventTypeJobScheduled EventType = "job.scheduled"
+	EventTypeJobDelayed   EventType = "job.delayed"
 	EventTypeJobRunning   EventType = "job.running"
 	EventTypeJobFailed    EventType = "job.failed"
 	EventTypeJobCompleted EventType = "job.completed"

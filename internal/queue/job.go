@@ -20,9 +20,10 @@ type Job struct {
 	Result  json.RawMessage
 	Error   string
 
-	CreatedAt  time.Time
-	StartedAt  time.Time
-	FinishedAt time.Time
+	CreatedAt   time.Time
+	AvailableAt time.Time
+	StartedAt   time.Time
+	FinishedAt  time.Time
 
 	seq int64
 }

@@ -17,6 +17,7 @@ type Engine struct {
 	handlers   *HandlerRegistry
 	eventBus   *EventBus
 	executions *ExecutionRegistry
+	scheduler  *Scheduler
 
 	jobs   chan *Job
 	wake   chan struct{}
@@ -41,6 +42,7 @@ func NewEngine() *Engine {
 		cancel:     cancel,
 	}
 	engine.pool = NewWorkerPool(jobsChannel, engine.process)
+	engine.scheduler = newScheduler(engine.enqueue)
 
 	return engine
 }
@@ -48,6 +50,8 @@ func NewEngine() *Engine {
 func (e *Engine) Start() {
 	e.wg.Add(1)
 	go e.dispatch()
+
+	e.scheduler.Start()
 	e.pool.Start(1)
 }
 
@@ -59,13 +63,14 @@ func (e *Engine) Run(data JobDto) (JobSnapshot, error) {
 	job := NewJob(data)
 
 	e.registry.Add(job)
-	e.queue.Push(job)
-	e.eventBus.Publish(Event{Type: EventTypeJobScheduled, Job: job.toSnapshot()})
 
-	select {
-	case e.wake <- struct{}{}:
-	default:
+	if !job.AvailableAt.IsZero() {
+		e.schedule(job)
+
+		return job.toSnapshot(), nil
 	}
+
+	e.enqueue(job)
 
 	return job.toSnapshot(), nil
 }
@@ -90,6 +95,7 @@ func (e *Engine) Cancel(id uuid.UUID) (JobSnapshot, error) {
 func (e *Engine) Stop() error {
 	e.cancel()
 	e.wg.Wait()
+	e.scheduler.Stop()
 	e.pool.Stop()
 	e.eventBus.Close()
 
@@ -136,6 +142,21 @@ func (e *Engine) WorkersCount() int {
 
 func (e *Engine) Subscribe() (<-chan Event, func()) {
 	return e.eventBus.Subscribe()
+}
+
+func (e *Engine) schedule(job *Job) {
+	e.scheduler.Schedule(job)
+	e.eventBus.Publish(Event{Type: EventTypeJobDelayed, Job: job.toSnapshot()})
+}
+
+func (e *Engine) enqueue(job *Job) {
+	e.queue.Push(job)
+	e.eventBus.Publish(Event{Type: EventTypeJobScheduled, Job: job.toSnapshot()})
+
+	select {
+	case e.wake <- struct{}{}:
+	default:
+	}
 }
 
 func (e *Engine) dispatch() {
