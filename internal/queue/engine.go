@@ -6,6 +6,7 @@ import (
 	"log"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -234,13 +235,27 @@ func (e *Engine) process(workerCtx context.Context, job *Job) {
 			return
 		}
 
-		if err := job.fail(reason); err != nil {
-			log.Printf("job %s failed to mark as failed", job.ID)
+		err := job.retry(reason, e.generateDelay(job.Attempt))
+		if err != nil {
+			if _, ok := errors.AsType[*JobReachedMaxAttempts](err); !ok {
+				log.Printf("job %s can not be retried: %s", job.ID, err.Error())
+
+				return
+			}
+
+			if failError := job.fail(reason); failError != nil {
+				log.Printf("job %s failed to mark as failed", job.ID)
+
+				return
+			}
+
+			e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
 
 			return
 		}
 
-		e.eventBus.Publish(Event{EventTypeJobFailed, job.toSnapshot()})
+		e.scheduler.Schedule(job)
+		e.eventBus.Publish(Event{EventTypeJobDelayed, job.toSnapshot()})
 
 		return
 	}
@@ -253,4 +268,8 @@ func (e *Engine) process(workerCtx context.Context, job *Job) {
 	}
 
 	e.eventBus.Publish(Event{EventTypeJobCompleted, job.toSnapshot()})
+}
+
+func (e *Engine) generateDelay(attempts int) time.Duration {
+	return time.Duration(attempts*attempts) * time.Second
 }

@@ -26,16 +26,20 @@ type Job struct {
 	FinishedAt  time.Time
 
 	seq int64
+
+	Attempt    int
+	MaxAttempt int
 }
 
 func NewJob(dto JobDto) *Job {
 	return &Job{
-		ID:        uuid.New(),
-		Type:      dto.Type,
-		State:     JobStateScheduled,
-		Priority:  dto.Priority,
-		Payload:   dto.Payload,
-		CreatedAt: time.Now(),
+		ID:         uuid.New(),
+		Type:       dto.Type,
+		State:      JobStateScheduled,
+		Priority:   dto.Priority,
+		Payload:    dto.Payload,
+		MaxAttempt: dto.MaxAttempt,
+		CreatedAt:  time.Now(),
 	}
 }
 
@@ -47,6 +51,7 @@ func (j *Job) run() error {
 		return &JobTransitionError{j.State, JobStateRunning}
 	}
 
+	j.Attempt++
 	j.State = JobStateRunning
 	j.StartedAt = time.Now()
 
@@ -97,20 +102,42 @@ func (j *Job) cancel() error {
 	return nil
 }
 
+func (j *Job) retry(reason error, delay time.Duration) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if !j.State.CanTransition(JobStateRetrying) {
+		return &JobTransitionError{j.State, JobStateRetrying}
+	}
+
+	if j.Attempt >= j.MaxAttempt {
+		return &JobReachedMaxAttempts{j.Attempt}
+	}
+
+	j.State = JobStateRetrying
+	j.Error = reason.Error()
+	j.AvailableAt = time.Now().Add(delay)
+
+	return nil
+}
+
 func (j *Job) toSnapshot() JobSnapshot {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
 	return JobSnapshot{
-		ID:         j.ID,
-		Type:       j.Type,
-		State:      j.State,
-		Priority:   j.Priority,
-		Payload:    j.Payload,
-		Result:     j.Result,
-		Error:      j.Error,
-		CreatedAt:  j.CreatedAt,
-		StartedAt:  j.StartedAt,
-		FinishedAt: j.FinishedAt,
+		ID:          j.ID,
+		Type:        j.Type,
+		State:       j.State,
+		Priority:    j.Priority,
+		Payload:     j.Payload,
+		Result:      j.Result,
+		Error:       j.Error,
+		CreatedAt:   j.CreatedAt,
+		AvailableAt: j.AvailableAt,
+		StartedAt:   j.StartedAt,
+		FinishedAt:  j.FinishedAt,
+		Attempt:     j.Attempt,
+		MaxAttempt:  j.MaxAttempt,
 	}
 }

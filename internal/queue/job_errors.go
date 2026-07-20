@@ -22,3 +22,11 @@ type JobNotFoundError struct {
 func (err *JobNotFoundError) Error() string {
 	return fmt.Sprintf("job ID: %s not found", err.id)
 }
+
+type JobReachedMaxAttempts struct {
+	attempts int
+}
+
+func (err *JobReachedMaxAttempts) Error() string {
+	return fmt.Sprintf("job reached max attempts %d", err.attempts)
+}

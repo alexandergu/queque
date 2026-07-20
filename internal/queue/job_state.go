@@ -4,6 +4,7 @@ type State string
 
 const (
 	JobStateScheduled State = "scheduled"
+	JobStateRetrying  State = "retrying"
 	JobStateRunning   State = "running"
 	JobStateCompleted State = "completed"
 	JobStateFailed    State = "failed"
@@ -20,9 +21,14 @@ var fsm = map[State]map[State]bool{
 		JobStateCompleted: true,
 		JobStateFailed:    true,
 		JobStateCancelled: true,
+		JobStateRetrying:  true,
+	},
+	JobStateRetrying: {
+		JobStateRunning:   true,
+		JobStateScheduled: true,
+		JobStateCancelled: true,
 	},
 	JobStateCompleted: {},
-	JobStateFailed:    {},
 	JobStateCancelled: {},
 }
 

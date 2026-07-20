@@ -9,9 +9,10 @@ import (
 )
 
 type CreateJobData struct {
-	Type     string          `json:"type"`
-	Payload  json.RawMessage `json:"payload"`
-	Priority int             `json:"priority"`
+	Type       string          `json:"type"`
+	Payload    json.RawMessage `json:"payload"`
+	Priority   int             `json:"priority"`
+	MaxAttempt int             `json:"maxAttempt"`
 }
 
 func (dto CreateJobData) Validate() error {
@@ -38,6 +39,13 @@ func (dto CreateJobData) Validate() error {
 		})
 	}
 
+	if dto.MaxAttempt < 1 || dto.MaxAttempt > 10 {
+		violations = append(violations, httpx.Violation{
+			Path:    "maxAttempt",
+			Message: fmt.Sprintf("maxAttempt must be between 1 and 10"),
+		})
+	}
+
 	if len(violations) > 0 {
 		return &httpx.ValidationError{
 			Message: "validation failed",
@@ -50,8 +58,9 @@ func (dto CreateJobData) Validate() error {
 
 func (dto CreateJobData) ToJobDto() queue.JobDto {
 	return queue.JobDto{
-		Type:     dto.Type,
-		Payload:  dto.Payload,
-		Priority: dto.Priority,
+		Type:       dto.Type,
+		Payload:    dto.Payload,
+		Priority:   dto.Priority,
+		MaxAttempt: dto.MaxAttempt,
 	}
 }
