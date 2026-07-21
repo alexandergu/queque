@@ -20,6 +20,8 @@ type Engine struct {
 	executions *ExecutionRegistry
 	scheduler  *Scheduler
 
+	retryDurationGenerator func(int) time.Duration
+
 	jobs   chan *Job
 	wake   chan struct{}
 	ctx    context.Context
@@ -32,15 +34,16 @@ func NewEngine() *Engine {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	engine := &Engine{
-		registry:   newJobRegistry(),
-		queue:      newJobQueue(),
-		handlers:   newHandlerRegistry(),
-		eventBus:   newEventBus(),
-		executions: newExecutionRegistry(),
-		jobs:       jobsChannel,
-		wake:       make(chan struct{}, 1),
-		ctx:        ctx,
-		cancel:     cancel,
+		registry:               newJobRegistry(),
+		queue:                  newJobQueue(),
+		handlers:               newHandlerRegistry(),
+		eventBus:               newEventBus(),
+		executions:             newExecutionRegistry(),
+		retryDurationGenerator: generateQuadraticDelay,
+		jobs:                   jobsChannel,
+		wake:                   make(chan struct{}, 1),
+		ctx:                    ctx,
+		cancel:                 cancel,
 	}
 	engine.pool = NewWorkerPool(jobsChannel, engine.process)
 	engine.scheduler = newScheduler(engine.enqueue)
@@ -235,7 +238,7 @@ func (e *Engine) process(workerCtx context.Context, job *Job) {
 			return
 		}
 
-		err := job.retry(reason, e.generateDelay(job.Attempt))
+		err := job.retry(reason, e.retryDurationGenerator(job.Attempt))
 		if err != nil {
 			if _, ok := errors.AsType[*JobReachedMaxAttempts](err); !ok {
 				log.Printf("job %s can not be retried: %s", job.ID, err.Error())
@@ -268,8 +271,4 @@ func (e *Engine) process(workerCtx context.Context, job *Job) {
 	}
 
 	e.eventBus.Publish(Event{EventTypeJobCompleted, job.toSnapshot()})
-}
-
-func (e *Engine) generateDelay(attempts int) time.Duration {
-	return time.Duration(attempts*attempts) * time.Second
 }
